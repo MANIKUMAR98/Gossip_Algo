@@ -10,7 +10,7 @@ open PushSum
 let mutable topologyType = "3D"
 let mutable algoType = "pushsum"
 let mutable actorList = []
-let timer = Stopwatch()
+let stopwatch = Stopwatch()
 
 // Main actor function that handles different messages for topology construction and algorithm execution.
 let MainActor (mailbox:Actor<_>) =    
@@ -26,7 +26,7 @@ let MainActor (mailbox:Actor<_>) =
             match message with 
             | SetupTopology(_) ->
                 // Constructs topology based on the algorithm type (gossip or pushsum).
-                printfn "ConstructTopology"
+                printfn "Constructing topology for %s algorithm." algoType
                 if algoType = "gossip" then    
                     actorList <-
                         [0 .. nodeCount-1]
@@ -43,8 +43,8 @@ let MainActor (mailbox:Actor<_>) =
             // Tracks the completion of topology construction.
                 topologyConstruction <- topologyConstruction + 1
                 if topologyConstruction = nodeCount then 
-                    printfn "Topology fully constructed! \n"
-                    timer.Start()
+                    printfn "Topology construction completed for %d nodes.\n" nodeCount
+                    stopwatch.Start()
                     primaryActorRef <! LaunchAlgorithmExecution(algoType)
 
             | LaunchAlgorithmExecution(algorithm) ->
@@ -53,7 +53,7 @@ let MainActor (mailbox:Actor<_>) =
                 | "gossip" ->
                     let randomNeighbor = Random().Next(actorList.Length)
                     let randomActor = actorList.[randomNeighbor]
-                    printfn "Sending first rumor to %d\n" randomNeighbor
+                    printfn "Sending the first rumor to neighbor %d\n" randomNeighbor
                     randomActor <! GossipMessage(0, "theRumor")
                 | "pushsum" ->
                     actorList |> List.iter (fun item -> 
@@ -67,11 +67,11 @@ let MainActor (mailbox:Actor<_>) =
             | ReceivedRumor(actorIndex) ->
             // Tracks the number of actors informed about the rumor.
                 actorsInformed <- actorsInformed + 1
-                printfn "%d knows! Total = %d\n" actorIndex actorsInformed
+                printfn "Actor %d has been informed! Total actors informed: %d.\n" actorIndex actorsInformed
                 if actorsInformed = nodeCount then 
-                    timer.Stop()
-                    printfn "\nTotal time = %d ms | Total Terminated = %d\n" timer.ElapsedMilliseconds actorsCompleted
-                    printfn "\n\n Everyone knows the rumor!!\n"
+                    stopwatch.Stop()
+                    printfn "\nTotal time taken: %d ms | Total actors terminated: %d\n" stopwatch.ElapsedMilliseconds actorsCompleted
+                    printfn "\nEveryone knows the rumor! Mission accomplished.\n"
                     Environment.Exit(0)
 
             | ConvergedPushsumActor (index, s, w) ->
@@ -80,8 +80,8 @@ let MainActor (mailbox:Actor<_>) =
                 printfn "id = %d | s = %f | w = %f | s/w = %f | Total terminated = %d"  index s w (s/w) actorsCompleted
                 if actorsCompleted = nodeCount then 
                     printfn "\n\n All nodes have converged!!\n\n"
-                    timer.Stop()
-                    printfn "Total time = %dms" timer.ElapsedMilliseconds
+                    stopwatch.Stop()
+                    printfn "Total time = %dms" stopwatch.ElapsedMilliseconds
                     Environment.Exit(0)
 
             | _ -> ()
